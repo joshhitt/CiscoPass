@@ -1,5 +1,7 @@
+#!/usr/local/bin/python3.9
 # Cisco Account Automation
-# This is basic function that will log into a switch and add or change a user account and password.
+# This is basic function that will loop through a list of cisco devices and update passwords.
+# It assumes Priv Level 15.  Users without that level will require a user account with it.
 
 import datetime
 import os
@@ -8,30 +10,19 @@ import time
 from getpass import getpass
 import paramiko
 
-
 print('\n    #### Caution Using All Devices List ####\n\n')
 sshUsername = input("Enter User Name: ").strip()
 sshPassword = getpass("Enter Current Password: ").strip()
-newUser = input("Enter the User account to add or change: ").strip()
-while True:
-    try:
-        privLevel = int(input("Enter Privilege Level: "))
-        assert 0 < privLevel < 16
-    except ValueError:
-        print("Use a number between 1 - 15")
-    except AssertionError:
-        print("Use a number between 1 - 15")
-    else:
-        break
 
 while True:
     newPass = getpass("Enter your new Password: ").strip()
+    # if(len(newPass)>=8):
     if not bool(re.match(r'((?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*/?]).{8,30})', newPass)):
         print("You have entered an invalid password.")
     else:
-        break  # moving on
+        break  # password complexity pass
 
-
+# Define Class for SSH function
 # noinspection PyPep8Naming
 class ssh:
     shell = None
@@ -60,27 +51,27 @@ class ssh:
         else:
             print("Connection Failed.")
 
-
 time_now = datetime.datetime.now().strftime('%H:%M:%S %m/%d/%Y')
 infilepath = os.path.expanduser('~/scripts/')  # UNIX Pathing
-# infilepath = os.path.expanduser('~\\scripts\\')  # Windows Pathing
-print(f"\n   Using File Path", {infilepath}, "\n")  # debug line verifying the device list
-devicelist = "devices.txt"  # Set device list default hostnames or IP addresses line seperated
+devicelist = "test_devices.txt"  # Set devicelist default
+# devicelist = "ios_devices.txt"  # Set devicelist default
+print(f"\n   Using File Path", {infilepath}, {devicelist}, "\n")  # debug line verifying the device list
 input_file = open(infilepath + devicelist, "r")
 iplist = input_file.readlines()
 input_file.close()
 try:
     for ip in iplist:
-        time.sleep(1)
+        time.sleep(2)
         try:
             host = ip.strip()
             connection = ssh(host, sshUsername, sshPassword)
             connection.open_shell()
             connection.send_shell('conf term')  # Cmd1
-            connection.send_shell(f'username {newUser} privilege {privLevel} secret 0 {newPass}')  # Cmd2
+            connection.send_shell(f'username {sshUsername} privilege 15 secret 0 {newPass}')  # Cmd2
             connection.send_shell('end')  # Cmd3
             connection.send_shell('write mem')  # Cmd4
-            time.sleep(2)
+            connection.send_shell('exit')  # Cmd5 
+            time.sleep(3)
             print('\n')
             connection.close_connection()
         finally:
